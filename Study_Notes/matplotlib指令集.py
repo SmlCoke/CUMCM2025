@@ -42,7 +42,8 @@ axes[a,b]访问第a行第b列个子图
 
 # 子图绘制
 axes[a,b].plot(x = , y = , color = , label = , linestyle = , linewidth = , marker = , markersize= , alpha = ,)
-
+axes[a,b].scatter(x, y, s=None, c=None, marker=None, cmap=None, norm=None, vmin=None, vmax=None, alpha=None,
+            linewidths=None, edgecolors=None, plotnonfinite=False, *, data=None)
 # 设置标题
 axes[a,b].set_title('标题', fontpreperties=S_16,color = )
 
