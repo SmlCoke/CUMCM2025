@@ -26,11 +26,13 @@ if __name__ == "__main__":
                                       interval_time = 3.6,
                                       init_coordinate = scene_test_1.FY_coordinates[0])
    
+    sample_dots_pro1 = sample_dots()
+    
     max_shallow_time = get_max_shallow_time_pro1(falsh_coordinate, 
                                                  scene_test_1,
                                                  time_step_rate = 0.05,
                                                  sample_dots = sample_dots_pro1)
     
-    sample_dots_pro1 = sample_dots()
+    
 
     

@@ -19,7 +19,7 @@ def calculate_sage_angle(center,
 
     return np.sqrt(distance**2 - radius**2)/distance
 
-# 对于给定采样点，计算 待评角 
+# 对于给定采样点，计算 测试角 
 def calculate_dot_angle(center,
                         M_coordinate,
                         dot_coordinate):
@@ -53,12 +53,22 @@ def detect_dot(dot_coordinate,
     center: 烟幕弹云团中心坐标，类型为含有三个元素的numpy数组
     radius: 烟幕球半径
     '''
-    return calculate_dot_angle(center = center, 
-                               dot_coordinate = dot_coordinate, 
-                               M_coordinate = M_coordinate) > calculate_sage_angle(center = center,
-                                                                                   radius = radius,
-                                                                                   M_coordinate = M_coordinate)
+    # 计算导弹距离云团中心的距离
+    M_c_distance = np.linalg.norm(M_coordinate - center) 
+    # 计算导弹距离采样点的距离
+    M_d_distance = np.linalg.norm(M_coordinate - dot_coordinate)
 
+    # 计算测试角余弦值
+    cos_dot_angle = calculate_dot_angle(center = center, 
+                                         dot_coordinate = dot_coordinate, 
+                                         M_coordinate = M_coordinate)
+    
+    # 计算安全角余弦值
+    cos_safe_angle = calculate_sage_angle(center = center,
+                                          radius = radius,
+                                          M_coordinate = M_coordinate)
+
+    return M_d_distance > M_c_distance and cos_dot_angle > cos_safe_angle
 
 # 根据起爆点坐标，当前 scene 信息，求遮蔽时长（但烟幕云团）
 def get_max_shallow_time_pro1(flash_coordinate,
@@ -77,12 +87,50 @@ def get_max_shallow_time_pro1(flash_coordinate,
     # 最长考虑时间
     max_time = max_falling_time if max_hit_time > max_falling_time else max_hit_time
 
+    max_time = max_time if max_time < 20 else 20
     # 时间点采样
     time_samples = np.arange(0, max_time + time_step_rate * max_time, time_step_rate * max_time)
 
     time_samples_counts = len(time_samples)
 
+    # 计算不同时间节点下的导弹坐标、烟幕云团中心坐标
+    centers = [flash_coordinate]
+    M1_coordinates = [scene.M_coordinates[0]]
+
+
     # 不同时间节点下的导弹M1坐标
+    for time_sample_index, time_sample in  enumerate(time_samples[1:]):
+        # 上次的时间节点，演化到此时的耗时
+        evolve_time = time_sample - time_samples[time_sample_index - 1]
+
+        # 计算系统演化到当前时间节点时的状态
+        scene.load_current_state(evolve_time)
+
+        # 计算当前时间节点下的导弹坐标
+        M1_coordinates.append(scene.M_coordinates[0]) 
+
+        # 计算当前时间节点下的烟幕云团坐标
+        centers.append(centers[time_sample_index - 1] - 3 * evolve_time)
+    
+    # 节点个数如果不等于时间节点个数，强制报错退出
+    node_counts = len(centers) 
+    if (node_counts != time_samples_counts):
+        raise ValueError("严重错误：节点个数如果不等于时间节点个数")
+    
+    shallow_flags = []
+
+    for index in range(node_counts):
+        shallow_flag = True
+        for dot in sample_dots:
+            if detect_dot(dot, M_coordinate = M1_coordinates[index], center = centers[index], radius = 10):
+                continue
+            else:
+                shallow_flag = False
+                break
+        shallow_flags.append(shallow_flag)
+
+    print(f"采样时间节点:\n{time_samples}")
+    print(f"不同时间节点的真目标遮蔽状态(True表示成功遮蔽，False表示遮蔽失败)：\n{shallow_flags}")
 
 
 
