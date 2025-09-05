@@ -47,7 +47,7 @@ class scene:
         self.M_coordinates = self.M_coordinates + evolve_time * self.M_velocity
 
         # 加载当前无人机位置坐标
-        self.FY_coordinates = self.FY_coordinates + evolve_time * self.FY_coordinates
+        self.FY_coordinates = self.FY_coordinates + evolve_time * self.FY_velocity
 
         if verbose == True:
             self.show_current_state()
@@ -57,16 +57,16 @@ class scene:
         打印当前场景状态
         '''
         try:
-            print(f"[info][debug]=========== t = {self.t} s时的状态信息 ===========")
-            print(f"[info][debug]导弹坐标 :\n {self.M_coordinates}")
-            print(f"[info][debug]导弹速度 :\n {self.M_velocity}")
-            print(f"[info][debug]无人机坐标:\n {self.FY_coordinates}")
-            print(f"[info][debug]无人机速度:\n {self.FY_velocity}")
-            print(f"[info][debug]=========== 状态信息打印成功 ^_^ ===========")
+            print(f"\n[info][debug]=========== t = {self.t} s时的状态信息 ===========")
+            print(f"\n[info][debug]导弹坐标 :\n {self.M_coordinates}")
+            print(f"\n[info][debug]导弹速度 :\n {self.M_velocity}")
+            print(f"\n[info][debug]无人机坐标:\n {self.FY_coordinates}")
+            print(f"\n[info][debug]无人机速度:\n {self.FY_velocity}")
+            print(f"\n[info][debug]=========== 状态信息打印成功 ^_^ ===========")
             
 
         except Exception as e:
-            print(f"[info][error]=========== 状态信息打印失败 ^_^ ===========\n {e}")
+            print(f"\n[info][error]=========== 状态信息打印失败 ^_^ ===========\n {e}")
 
         
 # 根据无人机飞行方向和速度大小确定速度矢量

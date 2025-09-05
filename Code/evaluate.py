@@ -1,5 +1,5 @@
 import numpy as np
-
+import copy
 
 # 计算 安全角 余弦值
 def calculate_sage_angle(center,
@@ -78,21 +78,26 @@ def get_max_shallow_time_pro1(flash_coordinate,
     # 当前无人机，导弹信息
     scene = current_scene
     
+    print(f"当前系统时间: {scene.t}")
     # 计算烟幕云团最长下落时间
     max_falling_time = flash_coordinate[2] / 3
+    print(f"[info][debug]: max_falling_time = {max_falling_time}")
 
     # 计算导弹击中假目标耗时
-    max_hit_time = current_scene.M_coordinates[0][0] / current_scene.M_velocity[0][0]
+    max_hit_time = current_scene.M_coordinates[0][0] / np.abs((current_scene.M_velocity[0][0]))
+    print(f"[info][debug]: max_hit_time = {max_hit_time}")
 
     # 最长考虑时间
     max_time = max_falling_time if max_hit_time > max_falling_time else max_hit_time
 
     max_time = max_time if max_time < 20 else 20
+
+    print(f"[info][debug]: max_time = {max_time}")
     # 时间点采样
     time_samples = np.arange(0, max_time + time_step_rate * max_time, time_step_rate * max_time)
 
     time_samples_counts = len(time_samples)
-
+    print(f"采样时间节点:\n{time_samples}")
     # 计算不同时间节点下的导弹坐标、烟幕云团中心坐标
     centers = [flash_coordinate]
     M1_coordinates = [scene.M_coordinates[0]]
@@ -100,17 +105,26 @@ def get_max_shallow_time_pro1(flash_coordinate,
 
     # 不同时间节点下的导弹M1坐标
     for time_sample_index, time_sample in  enumerate(time_samples[1:]):
+        '''
+        time_sample_index 从 0 开始
+        time_sample 从 time_samples[1] 开始
+        '''
         # 上次的时间节点，演化到此时的耗时
-        evolve_time = time_sample - time_samples[time_sample_index - 1]
-
+        evolve_time = time_sample - time_samples[time_sample_index]
+        print(f"time_sample: {time_sample}")
+        print(f"time_samples[time_sample_index - 1]: {time_samples[time_sample_index]}")
+        print(f"第{time_sample_index}次演化耗时:{evolve_time}")
         # 计算系统演化到当前时间节点时的状态
-        scene.load_current_state(evolve_time)
+        scene.load_current_state(evolve_time = evolve_time, verbose = True)
 
         # 计算当前时间节点下的导弹坐标
         M1_coordinates.append(scene.M_coordinates[0]) 
 
         # 计算当前时间节点下的烟幕云团坐标
-        centers.append(centers[time_sample_index - 1] - 3 * evolve_time)
+        current_center = copy.deepcopy(centers[time_sample_index])
+        current_center[2] = current_center[2] - 3 * evolve_time
+
+        centers.append(current_center)
     
     # 节点个数如果不等于时间节点个数，强制报错退出
     node_counts = len(centers) 
@@ -118,19 +132,23 @@ def get_max_shallow_time_pro1(flash_coordinate,
         raise ValueError("严重错误：节点个数如果不等于时间节点个数")
     
     shallow_flags = []
-
+    print(f"centers: {centers}")
     for index in range(node_counts):
         shallow_flag = True
-        for dot in sample_dots:
+        print(f"在第{index + 1}个时间点，导弹坐标: {M1_coordinates[index]}")
+        print(f"在第{index + 1}个时间点，烟幕云团中心坐标: {centers[index]}")
+        for dot_index, dot in enumerate(sample_dots):
             if detect_dot(dot, M_coordinate = M1_coordinates[index], center = centers[index], radius = 10):
-                continue
+                print(f"采样点{dot_index + 1}:{sample_dots[dot_index].tolist()}在第{index + 1}个时间节点遮蔽成功")
+                # continue
             else:
                 shallow_flag = False
-                break
+                print(f"采样点{dot_index + 1}:{sample_dots[dot_index].tolist()}在第{index + 1}个时间节点遮蔽失败")
+                # break
         shallow_flags.append(shallow_flag)
 
-    print(f"采样时间节点:\n{time_samples}")
-    print(f"不同时间节点的真目标遮蔽状态(True表示成功遮蔽，False表示遮蔽失败)：\n{shallow_flags}")
+    print(f"\n采样时间节点:\n{time_samples}")
+    print(f"\n不同时间节点的真目标遮蔽状态(True表示成功遮蔽，False表示遮蔽失败)：\n{shallow_flags}")
 
 
 
