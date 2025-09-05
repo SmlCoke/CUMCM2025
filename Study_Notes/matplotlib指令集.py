@@ -79,7 +79,7 @@ plt.tight_layout()
 plt.plot(x = , y = , color = , label = , linestyle = , linewidth = , marker = , markersize= , alpha = ,)
 
 # 设置标题
-plt.title('标题', fontpreperties=S_16,color = )
+plt.title('标题', fontproperties=S_16,color = )
 
 # 设置图例
 plt.legend(loc = 'upper left',prop = S_16)
