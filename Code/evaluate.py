@@ -60,6 +60,32 @@ def detect_dot(dot_coordinate,
                                                                                    M_coordinate = M_coordinate)
 
 
+# 根据起爆点坐标，当前 scene 信息，求遮蔽时长（但烟幕云团）
+def get_max_shallow_time_pro1(flash_coordinate,
+                              current_scene,
+                              time_step_rate,
+                              sample_dots):
+    # 当前无人机，导弹信息
+    scene = current_scene
+    
+    # 计算烟幕云团最长下落时间
+    max_falling_time = flash_coordinate[2] / 3
+
+    # 计算导弹击中假目标耗时
+    max_hit_time = current_scene.M_coordinates[0][0] / current_scene.M_velocity[0][0]
+
+    # 最长考虑时间
+    max_time = max_falling_time if max_hit_time > max_falling_time else max_hit_time
+
+    # 时间点采样
+    time_samples = np.arange(0, max_time + time_step_rate * max_time, time_step_rate * max_time)
+
+    time_samples_counts = len(time_samples)
+
+    # 不同时间节点下的导弹M1坐标
+
+
+
 if __name__ == "__main__":
     center = np.array([0,0,0])
     radius = 1
