@@ -17,7 +17,7 @@ def calculate_sage_angle(center,
     # 计算导弹距离云团中心的距离
     distance = np.linalg.norm(M_coordinate - center) 
 
-    return np.sqrt(distance**2 - radius**2)/distance
+    return np.sqrt(np.maximum(0, distance**2 - radius**2))/distance
 
 # 对于给定采样点，计算 测试角 
 def calculate_dot_angle(center,
@@ -52,6 +52,10 @@ def detect_dot(dot_coordinate,
     M_coordinate: 导弹坐标，类型为含有三个元素的numpy数组
     center: 烟幕弹云团中心坐标，类型为含有三个元素的numpy数组
     radius: 烟幕球半径
+
+    评判指标：
+    采样点被视线圆台覆盖（夹角条件和距离条件1）
+    或者采样点包含在烟幕云团内（距离条件）
     '''
     # 计算导弹距离云团中心的距离
     M_c_distance = np.linalg.norm(M_coordinate - center) 
@@ -67,37 +71,48 @@ def detect_dot(dot_coordinate,
     cos_safe_angle = calculate_sage_angle(center = center,
                                           radius = radius,
                                           M_coordinate = M_coordinate)
+    
+    # 计算采样点到烟幕云团中心的距离
+    c_d_distance = np.linalg.norm(center - dot_coordinate)
 
-    return M_d_distance > M_c_distance and cos_dot_angle > cos_safe_angle
+    return (M_d_distance > M_c_distance and cos_dot_angle > cos_safe_angle)  or c_d_distance < radius
 
 # 根据起爆点坐标，当前 scene 信息，求遮蔽时长（但烟幕云团）
 def get_max_shallow_time_pro1(flash_coordinate,
                               current_scene,
                               time_step_rate,
-                              sample_dots):
+                              sample_dots,
+                              verbose):
     # 当前无人机，导弹信息
-    scene = current_scene
+    scene = copy.deepcopy(current_scene)
     
-    print(f"当前系统时间: {scene.t}")
+    if verbose:
+        print(f"当前系统时间: {scene.t}")
+    
     # 计算烟幕云团最长下落时间
     max_falling_time = flash_coordinate[2] / 3
-    print(f"[info][debug]: max_falling_time = {max_falling_time}")
+    if verbose:
+        print(f"[info][debug]: max_falling_time = {max_falling_time}")
 
     # 计算导弹击中假目标耗时
     max_hit_time = current_scene.M_coordinates[0][0] / np.abs((current_scene.M_velocity[0][0]))
-    print(f"[info][debug]: max_hit_time = {max_hit_time}")
+    if verbose:
+        print(f"[info][debug]: max_hit_time = {max_hit_time}")
 
     # 最长考虑时间
     max_time = max_falling_time if max_hit_time > max_falling_time else max_hit_time
 
     max_time = max_time if max_time < 20 else 20
-
-    print(f"[info][debug]: max_time = {max_time}")
+    if verbose:
+        print(f"[info][debug]: max_time = {max_time}")
+    
     # 时间点采样
     time_samples = np.arange(0, max_time + time_step_rate * max_time, time_step_rate * max_time)
 
     time_samples_counts = len(time_samples)
-    print(f"采样时间节点:\n{time_samples}")
+    if verbose:
+        print(f"采样时间节点:\n{time_samples}")
+    
     # 计算不同时间节点下的导弹坐标、烟幕云团中心坐标
     centers = [flash_coordinate]
     M1_coordinates = [scene.M_coordinates[0]]
@@ -111,11 +126,11 @@ def get_max_shallow_time_pro1(flash_coordinate,
         '''
         # 上次的时间节点，演化到此时的耗时
         evolve_time = time_sample - time_samples[time_sample_index]
-        print(f"time_sample: {time_sample}")
-        print(f"time_samples[time_sample_index - 1]: {time_samples[time_sample_index]}")
-        print(f"第{time_sample_index}次演化耗时:{evolve_time}")
+        # print(f"time_sample: {time_sample}")
+        # print(f"time_samples[time_sample_index - 1]: {time_samples[time_sample_index]}")
+        # print(f"第{time_sample_index}次演化耗时:{evolve_time}")
         # 计算系统演化到当前时间节点时的状态
-        scene.load_current_state(evolve_time = evolve_time, verbose = True)
+        scene.load_current_state(evolve_time = evolve_time, verbose = False)
 
         # 计算当前时间节点下的导弹坐标
         M1_coordinates.append(scene.M_coordinates[0]) 
@@ -132,23 +147,124 @@ def get_max_shallow_time_pro1(flash_coordinate,
         raise ValueError("严重错误：节点个数如果不等于时间节点个数")
     
     shallow_flags = []
-    print(f"centers: {centers}")
+    if verbose:
+        print(f"centers: {centers}")
+
     for index in range(node_counts):
         shallow_flag = True
-        print(f"在第{index + 1}个时间点，导弹坐标: {M1_coordinates[index]}")
-        print(f"在第{index + 1}个时间点，烟幕云团中心坐标: {centers[index]}")
+        # print(f"在第{index + 1}个时间点，导弹坐标: {M1_coordinates[index]}")
+        # print(f"在第{index + 1}个时间点，烟幕云团中心坐标: {centers[index]}")
         for dot_index, dot in enumerate(sample_dots):
             if detect_dot(dot, M_coordinate = M1_coordinates[index], center = centers[index], radius = 10):
-                print(f"采样点{dot_index + 1}:{sample_dots[dot_index].tolist()}在第{index + 1}个时间节点遮蔽成功")
-                # continue
+                # print(f"采样点{dot_index + 1}:{sample_dots[dot_index].tolist()}在第{index + 1}个时间节点遮蔽成功")
+                continue
             else:
                 shallow_flag = False
-                print(f"采样点{dot_index + 1}:{sample_dots[dot_index].tolist()}在第{index + 1}个时间节点遮蔽失败")
-                # break
+                # print(f"采样点{dot_index + 1}:{sample_dots[dot_index].tolist()}在第{index + 1}个时间节点遮蔽失败")
+                break
         shallow_flags.append(shallow_flag)
+    if verbose:
+        print(f"\n采样时间节点:\n{time_samples}")
+        print(f"\n不同时间节点的真目标遮蔽状态(True表示成功遮蔽，False表示遮蔽失败)：\n{shallow_flags}")
+    
+    shallow_list = np.array(count_true_segments(shallow_flags))
 
-    print(f"\n采样时间节点:\n{time_samples}")
-    print(f"\n不同时间节点的真目标遮蔽状态(True表示成功遮蔽，False表示遮蔽失败)：\n{shallow_flags}")
+    # 最长遮蔽时间 = Σ(时间节点间隔 * 第i个True序列的True个数 - 1)
+    return max_time * time_step_rate * np.sum(shallow_list - 1)
+
+# 根据投放烟幕弹的位置信息和速度信息求解起爆点位置信息
+def get_Flashpoint(horizontal_speed,
+                   interval_time,
+                   init_coordinate):
+    '''
+    根据投放烟幕弹的位置信息和速度信息求解起爆点位置信息
+    horizontal_speed: 烟幕弹水平速度，与无人机水平速度相同，numpy数组
+    interval_time: 间隔时间，即投放烟幕弹到起爆烟幕弹所需时间
+    init_coordinate: 烟幕弹初始坐标，即投放烟幕弹时的无人机坐标，numpy数组
+
+    返回结果：
+    flash_coordinate: 烟幕弹起爆点坐标，numpy数组
+    '''
+    flash_coordinate = init_coordinate + interval_time * horizontal_speed
+    flash_coordinate[2] = flash_coordinate[2] - 1/2 * 9.8 * interval_time ** 2
+    return flash_coordinate 
+
+# 检测特定烟幕云团能否遮蔽导弹M1
+def detec_scene_bomb(scene,
+                     deli_time,
+                     bomb_time,
+                     current_time,
+                     sample_dots):
+    '''
+    输入参数：
+    scene: 系统当前状态（导弹/无人机的位置和速度要确保正确）
+    deli_time: 烟幕弹投放时间
+    bomb_time: 烟幕弹引爆时间
+    current_time: 当前时间节点
+    输出结果
+    当前时间节点该烟幕云团是否能够正确遮蔽导弹和真目标，是则返回True，否则返回False
+    '''
+
+    # 当前时间节点烟幕云团还未诞生
+    if current_time < bomb_time:
+        return False
+    
+    if bomb_time < current_time and current_time < bomb_time + 20:
+        current_scene = copy.deepcopy(scene)
+        # 将系统状态更新至投放点
+        current_scene.load_current_state(evolve_time = deli_time, verbose = False)
+
+        # 计算引爆点坐标
+        flash_coordinate = get_Flashpoint(horizontal_speed = current_scene.FY_velocity[0],
+                                           interval_time = bomb_time - deli_time,
+                                           init_coordinate = current_scene.FY_coordinates[0])
+
+        # 计算当前烟幕云团的球心坐标
+        flash_coordinate[2] = flash_coordinate[2] - 1/2 * 9.8 * (current_time - bomb_time) ** 2
+        current_center_coordinate = flash_coordinate
+        # 将系统状态更新至当前时刻
+        current_scene.load_current_state(evolve_time = current_time - deli_time, verbose = False)
+        
+        shallow_flag = True
+        # 利用detect_dot函数计算所有点是否均被遮蔽
+        for dot_index, dot in enumerate(sample_dots):
+            if detect_dot(dot, 
+                          M_coordinate = current_scene.M_coordinates[0], 
+                          center = current_center_coordinate, 
+                          radius = 10):
+                # print(f"采样点{dot_index + 1}:{sample_dots[dot_index].tolist()}在第{index + 1}个时间节点遮蔽成功")
+                continue
+            else:
+                shallow_flag = False
+                # print(f"采样点{dot_index + 1}:{sample_dots[dot_index].tolist()}在第{index + 1}个时间节点遮蔽失败")
+                break
+        
+        return shallow_flag
+    
+    # 如果 current_time > bomb_time + 20， 即烟幕云团消失，判定为遮蔽失败
+    else:
+        return False
+
+
+
+
+def count_true_segments(a):
+    '''
+    统计所有连续 True 的片段长度, 并输出为一个列表
+    '''
+    result = []
+    count = 0
+    for val in a:
+        if val:
+            count += 1
+        else:
+            if count > 0:
+                result.append(count)
+                count = 0
+    # 如果列表最后以 True 结尾，需要补充最后一个段
+    if count > 0:
+        result.append(count)
+    return result
 
 
 

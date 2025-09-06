@@ -31,8 +31,11 @@ if __name__ == "__main__":
     
     max_shallow_time = get_max_shallow_time_pro1(falsh_coordinate, 
                                                  scene_test_1,
-                                                 time_step_rate = 0.01,
-                                                 sample_dots = sample_dots_pro1)
+                                                 time_step_rate = 0.001,
+                                                 sample_dots = sample_dots_pro1,
+                                                 verbose = True)
+    
+    print(f"Pro1 solution: {max_shallow_time}")
     
     
 

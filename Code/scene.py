@@ -46,6 +46,7 @@ class scene:
         # 加载当前导弹位置坐标
         self.M_coordinates = self.M_coordinates + evolve_time * self.M_velocity
 
+        # print(self.FY_velocity)
         # 加载当前无人机位置坐标
         self.FY_coordinates = self.FY_coordinates + evolve_time * self.FY_velocity
 

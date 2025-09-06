@@ -1,5 +1,5 @@
 import numpy as np
-from PSO import ParticleSwarmOptimization
+from Code.PSO import ParticleSwarmOptimization
 
 # 示例评估函数：Sphere 函数（一个简单的测试函数）
 def sphere_function(x):
